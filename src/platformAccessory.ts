@@ -1,54 +1,102 @@
 import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
 
-import { ExampleHomebridgePlatform } from './platform';
+import { TrinnovHomebridgePlatform } from './platform';
 
-/**
- * Platform Accessory
- * An instance of this class is created for each accessory your platform registers
- * Each accessory may expose multiple services of different service types.
- */
-export class ExamplePlatformAccessory {
-  private service: Service;
+export class TrinnovPlatformAccessory {
 
-  /**
-   * These are just used to create a working example
-   * You should implement your own code to track the state of your accessory
-   */
+  private readonly service: Service;
+
   private exampleStates = {
-    On: false,
+    Power: true,
+    Volume: 100,
+    Mute: false,
+    Input: 'HDMI 1',
+    On: true,
     Brightness: 100,
   };
 
   constructor(
-    private readonly platform: ExampleHomebridgePlatform,
+    private readonly platform: TrinnovHomebridgePlatform,
     private readonly accessory: PlatformAccessory,
   ) {
 
+    platform.log.debug('Initializing ', accessory.context.device.name);
+
     // set accessory information
+    // TODO: Auto Discover Model and (if possible and allowed) Serial Number
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
-      .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Default-Manufacturer')
-      .setCharacteristic(this.platform.Characteristic.Model, 'Default-Model')
+      .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Trinnov')
+      .setCharacteristic(this.platform.Characteristic.Model, 'Altitude')
       .setCharacteristic(this.platform.Characteristic.SerialNumber, 'Default-Serial');
+
+    this.service = this.accessory.getService(this.platform.Service.Television) ||
+      this.accessory.addService(this.platform.Service.Television);
+
+    this.createTVService();
+    this.createTVSpeakerService();
+    this.createLightBulbService();
+    this.createMotionSensorServices();
+
+    // if (this.externalAccessories.length > 0) {
+    //   this.api.publishExternalAccessories(PLUGIN_NAME, this.externalAccessories);
+    // }
+
+  }
+
+  createTVService() {
+    // Set Television Service Name & Discovery Mode
+    this.service
+      .setCharacteristic(this.platform.Characteristic.ConfiguredName, this.accessory.context.device.displayName)
+      .setCharacteristic(
+        this.platform.Characteristic.SleepDiscoveryMode,
+        this.platform.Characteristic.SleepDiscoveryMode.ALWAYS_DISCOVERABLE,
+      );
+
+    // Power State Get/Set
+    this.service
+      .getCharacteristic(this.platform.Characteristic.Active)
+      .onSet(this.setPowerState.bind(this))
+      .onGet(this.getPowerState.bind(this));
+
+    // Input Source Get/Set
+    this.service
+      .getCharacteristic(this.platform.Characteristic.ActiveIdentifier)
+      .onSet(this.setInputState.bind(this))
+      .onGet(this.getInputState.bind(this));
+
+    // Remote Key Set
+    // this.service.getCharacteristic(this.platform.Characteristic.RemoteKey).onSet(this.setRemoteKey.bind(this));
+  }
+
+  createTVSpeakerService() {
+
+    const speakerService = this.accessory.getService(this.platform.Service.TelevisionSpeaker) ||
+    this.accessory.addService(new this.platform.Service.TelevisionSpeaker(this.accessory.context.device.name));
+
+    speakerService.getCharacteristic(this.platform.Characteristic.Mute)
+      .onSet(this.setMute.bind(this))
+      .onSet(this.getMute.bind(this));
+
+    speakerService.getCharacteristic(this.platform.Characteristic.Volume)
+      .onSet(this.setVolume.bind(this))
+      .onGet(this.getVolume.bind(this));
+
+  }
+
+  // TODO: Demo Code, to be removed.
+  createLightBulbService() {
 
     // get the LightBulb service if it exists, otherwise create a new LightBulb service
     // you can create multiple services for each accessory
-    this.service = this.accessory.getService(this.platform.Service.Lightbulb) || this.accessory.addService(this.platform.Service.Lightbulb);
+    const lightBulbService = this.accessory.getService(this.platform.Service.Lightbulb);
 
-    // set the service name, this is what is displayed as the default name on the Home app
-    // in this example we are using the name we stored in the `accessory.context` in the `discoverDevices` method.
-    this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.context.device.exampleDisplayName);
+    if (lightBulbService) {
+      this.accessory.removeService(lightBulbService);
+    }
+  }
 
-    // each service must implement at-minimum the "required characteristics" for the given service type
-    // see https://developers.homebridge.io/#/service/Lightbulb
-
-    // register handlers for the On/Off Characteristic
-    this.service.getCharacteristic(this.platform.Characteristic.On)
-      .onSet(this.setOn.bind(this))                // SET - bind to the `setOn` method below
-      .onGet(this.getOn.bind(this));               // GET - bind to the `getOn` method below
-
-    // register handlers for the Brightness Characteristic
-    this.service.getCharacteristic(this.platform.Characteristic.Brightness)
-      .onSet(this.setBrightness.bind(this));       // SET - bind to the 'setBrightness` method below
+  // TODO: Demo Code, to be removed.
+  createMotionSensorServices() {
 
     /**
      * Creating multiple services of the same type.
@@ -89,6 +137,50 @@ export class ExamplePlatformAccessory {
       this.platform.log.debug('Triggering motionSensorOneService:', motionDetected);
       this.platform.log.debug('Triggering motionSensorTwoService:', !motionDetected);
     }, 10000);
+  }
+
+  async setPowerState(value: CharacteristicValue) {
+    this.exampleStates.Power = value as boolean;
+    this.platform.log.debug('Set Characteristic Power ->', value);
+  }
+
+  async getPowerState(): Promise<CharacteristicValue> {
+    const isPower = this.exampleStates.Power;
+    this.platform.log.debug('Get Characteristic Power ->', isPower);
+    return isPower;
+  }
+
+  async setInputState(value: CharacteristicValue) {
+    this.exampleStates.Input = value as string;
+    this.platform.log.debug('Set Characteristic Input ->', value);
+  }
+
+  async getInputState(): Promise<CharacteristicValue> {
+    const input = this.exampleStates.Input;
+    this.platform.log.debug('Get Characteristic Input ->', input);
+    return input;
+  }
+
+  async setMute(value: CharacteristicValue) {
+    this.exampleStates.Mute = value as boolean;
+    this.platform.log.debug('Set Characteristic Mute ->', value);
+  }
+
+  async getMute(): Promise<CharacteristicValue> {
+    const isMute = this.exampleStates.Mute;
+    this.platform.log.debug('Get Characteristic Mute ->', isMute);
+    return isMute;
+  }
+
+  async setVolume(value: CharacteristicValue) {
+    this.exampleStates.Volume = value as number;
+    this.platform.log.debug('Set Characteristic Volume ->', value);
+  }
+
+  async getVolume(): Promise<CharacteristicValue> {
+    const volume = this.exampleStates.Volume;
+    this.platform.log.debug('Get Characteristic Volume ->', volume);
+    return volume;
   }
 
   /**

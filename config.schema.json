@@ -1,5 +1,5 @@
 {
-  "pluginAlias": "ExampleHomebridgePlugin",
+  "pluginAlias": "Trinnov",
   "pluginType": "platform",
   "singular": true,
   "schema": {
@@ -9,8 +9,21 @@
         "title": "Name",
         "type": "string",
         "required": true,
-        "default": "Example Dynamic Platform"
+        "default": "Altitude-16-00xxxx"
+      },
+      "macaddress": {
+        "title": "MAC Address",
+        "type": "string",
+        "required": true,
+        "default": "AA:BB:CC:DD:EE:FF"
+      },
+      "ipaddress": {
+        "title": "IP Address",
+        "type": "string",
+        "required": true,
+        "default": "192.168.0.100"
       }
+
     }
   }
 }
